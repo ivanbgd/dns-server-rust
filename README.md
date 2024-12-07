@@ -30,8 +30,15 @@ Time to move on to the next stage!
 Note: This section is for stages 2 and beyond.
 
 1. Ensure you have `cargo (1.82)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
+2. Run `./your_program.sh` to run your program, which is implemented in
    `src/main.rs`. This command compiles your Rust project, so it might be slow
    the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
+3. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
+
+# Running the Program
+
+- If you would like to enable the added logging functionality, first set the `RUST_LOG` environment variable.
+    - `export RUST_LOG=[trace | debug | info | warn]`
+- Run `./your_program.sh` in one terminal session, and `curl -v http://localhost:2053`
+  or some other network tool in another.
