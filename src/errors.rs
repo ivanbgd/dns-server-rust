@@ -23,3 +23,13 @@ pub enum ConnectionError {
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
+/// Errors related to working with [`crate::message`]
+#[derive(Debug, Error)]
+pub enum MessageError {
+    #[error("Unsupported OpCode: {0}")]
+    OpCodeError(u8),
+
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}

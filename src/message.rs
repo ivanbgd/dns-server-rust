@@ -4,16 +4,17 @@
 //!
 //! https://en.wikipedia.org/wiki/Domain_Name_System#DNS_message_format
 
+use crate::errors::MessageError;
+use anyhow::Result;
 use deku::prelude::*;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-// #[deku(endian = "big")] todo
 pub struct Message {
     pub header: Header,
 }
 
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-// #[deku(endian = "big")] todo
 pub struct Header {
     /// A 16-bit identifier assigned by the program that generates any kind of query.
     /// This identifier is copied into the corresponding reply and can be used by the requester
@@ -54,8 +55,7 @@ pub struct Header {
     pub z: u8,
 
     /// Response code - this 4-bit field is set as part of responses.
-    #[deku(bits = 4)]
-    pub rcode: u8,
+    pub rcode: ResponseCode,
 
     /// An unsigned 16-bit integer specifying the number of entries in the question section.
     pub qdcount: u16,
@@ -74,7 +74,7 @@ pub struct Header {
 /// A four-bit field that specifies kind of query in this message.
 /// This value is set by the originator of a query and copied into the response.
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-#[deku(id_type = "u8", bits = "4")]
+#[deku(id_type = "u8", bits = "4", endian = "big")]
 pub enum OpCode {
     /// a standard query (QUERY)
     #[deku(id = "0")]
@@ -93,9 +93,37 @@ pub enum OpCode {
     Reserved,
 }
 
+/// In case we'd like to print [`OpCode`] as raw byte, i.e., as [`u8`].
+///
+/// Use [`Debug`] for human-readable output, which we derived for this enum.
+impl Display for OpCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self as *const Self as u8)
+    }
+}
+
+impl TryFrom<u8> for OpCode {
+    type Error = MessageError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(OpCode::Query),
+            1 => Ok(OpCode::InverseQuery),
+            2 => Ok(OpCode::Status),
+            v => Err(MessageError::OpCodeError(v)),
+        }
+    }
+}
+
+impl From<OpCode> for u8 {
+    fn from(value: OpCode) -> Self {
+        value as u8
+    }
+}
+
 /// Response code - this 4-bit field is set as part of responses.
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-#[deku(id_type = "u8", bits = "4")]
+#[deku(id_type = "u8", bits = "4", endian = "big")]
 pub enum ResponseCode {
     /// No error condition
     #[deku(id = "0")]
