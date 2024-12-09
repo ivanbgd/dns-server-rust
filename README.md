@@ -40,5 +40,5 @@ Note: This section is for stages 2 and beyond.
 
 - If you would like to enable the added logging functionality, first set the `RUST_LOG` environment variable.
     - `export RUST_LOG=[trace | debug | info | warn]`
-- Run `./your_program.sh` in one terminal session, and `curl -v http://localhost:2053`
+- Run `./your_program.sh` in one terminal session, and `dig @127.0.0.1 -p 2053 +noedns codecrafters.io`
   or some other network tool in another.
