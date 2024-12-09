@@ -4,10 +4,7 @@
 //!
 //! https://en.wikipedia.org/wiki/Domain_Name_System#DNS_message_format
 
-use crate::errors::MessageError;
-use anyhow::Result;
 use deku::prelude::*;
-use std::fmt::{Display, Formatter};
 
 /// DNS Message
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
@@ -36,11 +33,11 @@ pub struct Header {
     /// A 16-bit identifier assigned by the program that generates any kind of query.
     /// This identifier is copied into the corresponding reply and can be used by the requester
     /// to match up replies to outstanding queries.
+    #[deku(endian = "big")]
     pub id: u16,
 
     /// A one-bit field that specifies whether this message is a query (0), or a response (1).
-    #[deku(bits = 1)]
-    pub qr: u8,
+    pub qr: Qr,
 
     /// A four-bit field that specifies kind of query in this message.
     /// This value is set by the originator of a query and copied into the response.
@@ -75,17 +72,34 @@ pub struct Header {
     pub rcode: ResponseCode,
 
     /// An unsigned 16-bit integer specifying the number of entries in the question section.
+    #[deku(endian = "big")]
     pub qdcount: u16,
 
     /// An unsigned 16-bit integer specifying the number of resource records in the answer section.
+    #[deku(endian = "big")]
     pub ancount: u16,
 
     /// An unsigned 16-bit integer specifying the number of name server resource records
     /// in the authority records section.
+    #[deku(endian = "big")]
     pub nscount: u16,
 
     /// An unsigned 16-bit integer specifying the number of resource records in the additional records section.
+    #[deku(endian = "big")]
     pub arcount: u16,
+}
+
+/// A one-bit field that specifies whether this message is a query (0), or a response (1).
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+#[deku(id_type = "u8", bits = "1", endian = "big")]
+pub enum Qr {
+    /// Query
+    #[deku(id = "0")]
+    Query = 0,
+
+    /// Response
+    #[deku(id = "1")]
+    Response = 1,
 }
 
 /// A four-bit field that specifies kind of query in this message.
@@ -108,34 +122,6 @@ pub enum OpCode {
     /// reserved for future use
     #[deku(id_pat = "3..=15")]
     Reserved,
-}
-
-/// In case we'd like to print [`OpCode`] as raw byte, i.e., as [`u8`].
-///
-/// Use [`Debug`] for human-readable output, which we derived for this enum.
-impl Display for OpCode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self as *const Self as u8)
-    }
-}
-
-impl TryFrom<u8> for OpCode {
-    type Error = MessageError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(OpCode::Query),
-            1 => Ok(OpCode::InverseQuery),
-            2 => Ok(OpCode::Status),
-            v => Err(MessageError::OpCodeError(v)),
-        }
-    }
-}
-
-impl From<OpCode> for u8 {
-    fn from(value: OpCode) -> Self {
-        value as u8
-    }
 }
 
 /// Response code - this 4-bit field is set as part of responses.
@@ -170,35 +156,4 @@ pub enum ResponseCode {
     /// Reserved for future use.
     #[deku(id_pat = "6..=15")]
     Reserved,
-}
-
-/// In case we'd like to print [`ResponseCode`] as raw byte, i.e., as [`u8`].
-///
-/// Use [`Debug`] for human-readable output, which we derived for this enum.
-impl Display for ResponseCode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self as *const Self as u8)
-    }
-}
-
-impl TryFrom<u8> for ResponseCode {
-    type Error = MessageError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(ResponseCode::NoError),
-            1 => Ok(ResponseCode::FormatError),
-            2 => Ok(ResponseCode::ServerFailure),
-            3 => Ok(ResponseCode::NameError),
-            4 => Ok(ResponseCode::NotImplemented),
-            5 => Ok(ResponseCode::Refused),
-            v => Err(MessageError::ResponseCodeError(v)),
-        }
-    }
-}
-
-impl From<ResponseCode> for u8 {
-    fn from(value: ResponseCode) -> Self {
-        value as u8
-    }
 }
