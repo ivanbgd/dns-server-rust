@@ -20,23 +20,29 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
     let qheader = qmsg.1.header;
 
     // -> Response
+    let rcode = if qheader.opcode == OpCode::Query {
+        ResponseCode::NoError
+    } else {
+        ResponseCode::NotImplemented
+    };
     let rheader = Header {
         id: qheader.id,
         qr: Qr::Response,
         opcode: OpCode::Query,
         aa: 0,
         tc: 0,
-        rd: 0,
+        rd: qheader.rd,
         ra: 0,
         z: 0,
-        rcode: ResponseCode::NoError,
+        rcode,
         qdcount: 0,
         ancount: 0,
         nscount: 0,
         arcount: 0,
     };
+    let rmsg = Message { header: rheader };
     let mut response = [0; BUFFER_LEN];
-    let wrote = rheader.to_slice(&mut response)?;
+    let wrote = rmsg.to_slice(&mut response)?;
     let written = udp_socket
         .send_to(&response[..wrote], source)
         .await
