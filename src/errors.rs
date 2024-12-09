@@ -2,6 +2,8 @@
 //!
 //! Error types and helper functions used in the library
 
+use deku::DekuError;
+use std::array::TryFromSliceError;
 use thiserror::Error;
 
 /// Application errors
@@ -21,14 +23,23 @@ pub enum ConnectionError {
     SendError(std::io::Error),
 
     #[error(transparent)]
+    DekuError(#[from] DekuError),
+
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 /// Errors related to working with [`crate::message`]
 #[derive(Debug, Error)]
 pub enum MessageError {
+    #[error(transparent)]
+    Slice(#[from] TryFromSliceError),
+
     #[error("Unsupported OpCode: {0}")]
     OpCodeError(u8),
+
+    #[error("Unsupported ResponseCode: {0}")]
+    ResponseCodeError(u8),
 
     #[error(transparent)]
     Other(#[from] anyhow::Error),

@@ -9,11 +9,28 @@ use anyhow::Result;
 use deku::prelude::*;
 use std::fmt::{Display, Formatter};
 
+/// DNS Message
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Message {
     pub header: Header,
 }
 
+/// DNS Message Header
+///
+///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                      ID                       |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    QDCOUNT                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ANCOUNT                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    NSCOUNT                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ARCOUNT                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Header {
     /// A 16-bit identifier assigned by the program that generates any kind of query.
@@ -153,4 +170,35 @@ pub enum ResponseCode {
     /// Reserved for future use.
     #[deku(id_pat = "6..=15")]
     Reserved,
+}
+
+/// In case we'd like to print [`ResponseCode`] as raw byte, i.e., as [`u8`].
+///
+/// Use [`Debug`] for human-readable output, which we derived for this enum.
+impl Display for ResponseCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self as *const Self as u8)
+    }
+}
+
+impl TryFrom<u8> for ResponseCode {
+    type Error = MessageError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(ResponseCode::NoError),
+            1 => Ok(ResponseCode::FormatError),
+            2 => Ok(ResponseCode::ServerFailure),
+            3 => Ok(ResponseCode::NameError),
+            4 => Ok(ResponseCode::NotImplemented),
+            5 => Ok(ResponseCode::Refused),
+            v => Err(MessageError::ResponseCodeError(v)),
+        }
+    }
+}
+
+impl From<ResponseCode> for u8 {
+    fn from(value: ResponseCode) -> Self {
+        value as u8
+    }
 }
