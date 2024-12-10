@@ -6,13 +6,39 @@
 
 use deku::prelude::*;
 
-/// DNS Message
+/// # DNS Message
+///
+/// All communications inside of the domain protocol are carried in a single
+/// format called a message.  The top level format of message is divided
+/// into 5 sections (some of which are empty in certain cases) shown below:
+///
+///     +---------------------+
+///     |        Header       |
+///     +---------------------+
+///     |       Question      | the question for the name server
+///     +---------------------+
+///     |        Answer       | RRs answering the question
+///     +---------------------+
+///     |      Authority      | RRs pointing toward an authority
+///     +---------------------+
+///     |      Additional     | RRs holding additional information
+///     +---------------------+
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Message {
+    /// The header
     pub header: Header,
+
+    /// The questions for the name server
+    #[deku(count = "1")]
+    pub questions: Vec<Question>,
 }
 
-/// DNS Message Header
+/// # DNS Message Header
+///
+/// The header section is always present.  The header includes fields that
+/// specify which of the remaining sections are present, and also specify
+/// whether the message is a query or a response, a standard query or some
+/// other opcode, etc.
 ///
 ///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -156,4 +182,80 @@ pub enum ResponseCode {
     /// Reserved for future use.
     #[deku(id_pat = "6..=15")]
     Reserved,
+}
+
+/// # DNS Question
+///
+/// The question section is used to carry the "question" in most queries,
+/// i.e., the parameters that define what is being asked.  The section
+/// contains QDCOUNT (usually 1) entries, each of the following format:
+///
+///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                                               |
+///     /                     QNAME                     /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     QTYPE                     |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     QCLASS                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+pub struct Question {
+    /// QNAME:          a domain name represented as a sequence of labels, where
+    ///                 each label consists of a length octet followed by that
+    ///                 number of octets.  The domain name terminates with the
+    ///                 zero length octet for the null label of the root.  Note
+    ///                 that this field may be an odd number of octets; no
+    ///                 padding is used.
+    #[deku(until = "|v: &u8| *v == 0")]
+    pub qname: Vec<u8>,
+
+    /// QTYPE:          a two octet code which specifies the type of the query.
+    ///                 The values for this field include all codes valid for a
+    ///                 TYPE field, together with some more general codes which
+    ///                 can match more than one type of RR.
+    pub qtype: Qtype,
+
+    /// QCLASS:         a two octet code that specifies the class of the query.
+    ///                 For example, the QCLASS field is IN for the Internet.
+    pub qclass: Qclass,
+}
+
+// impl Question {
+//     pub fn new(qname: &[u8], qtype: Qtype, qclass: Qclass) -> Self {
+//         Self {
+//             qname,
+//             qtype,
+//             qclass,
+//         }
+//     }
+// }
+
+/// QTYPE fields appear in the question part of a query.  QTYPES are a
+/// superset of TYPEs, hence all TYPEs are valid QTYPEs.
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+#[deku(id_type = "u16", bits = "16", endian = "big")]
+pub enum Qtype {
+    /// a host address
+    #[deku(id = "1")]
+    A = 1,
+
+    /// an authoritative name server
+    #[deku(id = "2")]
+    NS = 2,
+
+    /// mail exchange
+    #[deku(id = "15")]
+    MX = 15,
+}
+
+/// QCLASS fields appear in the question section of a query.  QCLASS values
+/// are a superset of CLASS values; every CLASS is a valid QCLASS.
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+#[deku(id_type = "u16", bits = "16", endian = "big")]
+pub enum Qclass {
+    /// the Internet
+    #[deku(id = "1")]
+    IN = 1,
 }
