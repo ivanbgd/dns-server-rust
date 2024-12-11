@@ -9,11 +9,11 @@ use log::{debug, info};
 use tokio::net::UdpSocket;
 
 pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionError> {
-    let mut buf = [0u8; BUFFER_LEN];
-
     //
     // <== Query
     //
+
+    let mut buf = [0u8; BUFFER_LEN];
     let (read, source) = udp_socket
         .recv_from(&mut buf)
         .await
@@ -24,11 +24,11 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
     eprintln!("<= buf = {:02x?}, {read}", &buf[..read]); // todo rem
     let qmsg = Message::from_bytes((&mut buf, 0))?;
     debug!("<= {:?}", qmsg.1);
-    eprintln!("<= qmsg.1 = {:?}", qmsg.1); // todo rem
+    eprintln!("<= qmsg.1 = {:02x?}", qmsg.1); // todo rem
     let qheader = qmsg.1.header;
     eprintln!("<= qheader = {:?}", qheader); // todo rem
     let questions = qmsg.1.question;
-    eprintln!("<= questions = {:?}", questions); // todo rem
+    eprintln!("<= questions = {:02x?}", questions); // todo rem
 
     //
     // --> Response
@@ -41,9 +41,6 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         ResponseCode::NotImplemented
     };
 
-    // The ordinal of the Q & A count - could be used in a loop if needed.
-    let count = 1;
-
     let rheader = Header {
         id: qheader.id,
         qr: Qr::Response,
@@ -54,8 +51,8 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         ra: 0,
         z: 0,
         rcode,
-        qdcount: count,
-        ancount: count,
+        qdcount: qheader.qdcount,
+        ancount: qheader.qdcount,
         nscount: 0,
         arcount: 0,
     };
@@ -75,13 +72,14 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         question: questions,
         answer: answers,
     };
+    debug!("-> {:?}", rmsg);
     eprintln!("-> rmsg = {:?}", rmsg); // todo rem
 
-    let mut response = [0; BUFFER_LEN];
-    let wrote = rmsg.to_slice(&mut response)?;
-    eprintln!("-> response = {:02x?}, {wrote}", &response[..wrote]); // todo rem
+    let mut buf = [0u8; BUFFER_LEN];
+    let wrote = rmsg.to_slice(&mut buf)?;
+    eprintln!("-> response = {:02x?}, {wrote}", &buf[..wrote]); // todo rem
     let written = udp_socket
-        .send_to(&response[..wrote], source)
+        .send_to(&buf[..wrote], source)
         .await
         .map_err(ConnectionError::SendError)?;
     info!("-> Sent {} bytes back to {}", written, source);
