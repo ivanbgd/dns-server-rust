@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use codecrafters_dns_server::conn::handle_request;
-use codecrafters_dns_server::constants::{ExitCode, BUFFER_LEN, LOCAL_SOCKET_ADDR_STR};
+use codecrafters_dns_server::constants::{ExitCode, LOCAL_SOCKET_ADDR_STR};
 use codecrafters_dns_server::errors::{ApplicationError, ConnectionError};
 use log::{error, info, warn};
 use std::process::exit;
@@ -20,9 +20,7 @@ async fn main() -> Result<(), ApplicationError> {
     info!("Waiting for requests...");
 
     loop {
-        let mut buf = [0; BUFFER_LEN];
-
-        match handle_request(&udp_socket, &mut buf).await {
+        match handle_request(&udp_socket).await {
             Ok(_) => {}
             Err(ConnectionError::RecvError(e)) => {
                 error!("{e}");

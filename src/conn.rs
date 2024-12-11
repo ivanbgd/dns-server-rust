@@ -8,19 +8,21 @@ use deku::{DekuContainerRead, DekuContainerWrite};
 use log::{debug, info};
 use tokio::net::UdpSocket;
 
-pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<(), ConnectionError> {
+pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionError> {
+    let mut buf = [0u8; BUFFER_LEN];
+
     //
     // <== Query
     //
     let (read, source) = udp_socket
-        .recv_from(buf)
+        .recv_from(&mut buf)
         .await
         .map_err(ConnectionError::RecvError)?;
     info!("<= Received {} bytes from {}", read, source);
     debug!("<= Received {} bytes from {}", read, source); // todo rem
 
     eprintln!("<= buf = {:02x?}, {read}", &buf[..read]); // todo rem
-    let qmsg = Message::from_bytes((buf, 0))?;
+    let qmsg = Message::from_bytes((&mut buf, 0))?;
     debug!("<= {:?}", qmsg.1);
     eprintln!("<= qmsg.1 = {:?}", qmsg.1); // todo rem
     let qheader = qmsg.1.header;
