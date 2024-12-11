@@ -33,7 +33,6 @@ async fn main() -> Result<(), ApplicationError> {
                 warn!("{e}");
             }
         }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await; // todo rem
 
         tokio::spawn(async move {
             // Await the shutdown signal

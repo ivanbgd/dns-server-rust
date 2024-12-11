@@ -126,7 +126,7 @@ pub struct Header {
 
 /// A one-bit field that specifies whether this message is a query (0), or a response (1).
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-#[deku(id_type = "u8", bits = "1", endian = "big")]
+#[deku(id_type = "u8", bits = "1")]
 pub enum Qr {
     /// Query
     #[deku(id = "0")]
@@ -140,7 +140,7 @@ pub enum Qr {
 /// A four-bit field that specifies kind of query in this message.
 /// This value is set by the originator of a query and copied into the response.
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-#[deku(id_type = "u8", bits = "4", endian = "big")]
+#[deku(id_type = "u8", bits = "4")]
 pub enum OpCode {
     /// a standard query (QUERY)
     #[deku(id = "0")]
@@ -155,13 +155,12 @@ pub enum OpCode {
     Status = 2,
 
     /// reserved for future use
-    #[deku(id_pat = "3..=15")]
     Reserved,
 }
 
 /// Response code - this 4-bit field is set as part of responses.
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
-#[deku(id_type = "u8", bits = "4", endian = "big")]
+#[deku(id_type = "u8", bits = "4")]
 pub enum ResponseCode {
     /// No error condition
     #[deku(id = "0")]
@@ -189,7 +188,6 @@ pub enum ResponseCode {
     Refused = 5,
 
     /// Reserved for future use.
-    #[deku(id_pat = "6..=15")]
     Reserved,
 }
 
