@@ -40,7 +40,7 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
     let rheader = Header {
         id: qheader.id,
         qr: Qr::Response,
-        opcode: OpCode::Query,
+        opcode: qheader.opcode,
         aa: 0,
         tc: 0,
         rd: qheader.rd,
