@@ -1,8 +1,8 @@
 //! Connection and request handlers
 
-use crate::constants::BUFFER_LEN;
+use crate::constants::{ARBITRARY_IPV4, BUFFER_LEN, TTL};
 use crate::errors::ConnectionError;
-use crate::message::{Header, Message, OpCode, Qclass, Qr, Qtype, Question, ResponseCode};
+use crate::message::{Class, Header, Message, OpCode, Qr, ResourceRecord, ResponseCode, Type};
 use anyhow::Result;
 use deku::{DekuContainerRead, DekuContainerWrite};
 use log::{debug, info};
@@ -21,18 +21,21 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
     let qmsg = Message::from_bytes((buf, 0))?;
     debug!("<= {:?}", qmsg.1);
     let qheader = qmsg.1.header;
-    let qquestions = qmsg.1.questions;
+    let questions = qmsg.1.question;
 
     //
     // --> Response
     //
+
+    // Response code
     let rcode = if qheader.opcode == OpCode::Query {
         ResponseCode::NoError
     } else {
         ResponseCode::NotImplemented
     };
 
-    let qdcount = 1;
+    // The ordinal of the Q & A count - could be used in a loop if needed.
+    let count = 1;
 
     let rheader = Header {
         id: qheader.id,
@@ -44,24 +47,25 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
         ra: 0,
         z: 0,
         rcode,
-        qdcount,
-        ancount: 0,
+        qdcount: count,
+        ancount: count,
         nscount: 0,
         arcount: 0,
     };
 
-    let rquestions: Vec<Question> = qquestions
-        .into_iter()
-        .map(|q| Question {
-            qname: q.qname,
-            qtype: Qtype::A,
-            qclass: Qclass::IN,
-        })
-        .collect::<Vec<Question>>();
+    // Response data
+    let rdata = ARBITRARY_IPV4;
+
+    let answers = questions
+        .iter()
+        .clone()
+        .map(|q| ResourceRecord::new(q.qname.clone(), Type::A, Class::IN, TTL, Vec::from(rdata)))
+        .collect::<Vec<_>>();
 
     let rmsg = Message {
         header: rheader,
-        questions: rquestions,
+        question: questions,
+        answer: answers,
     };
 
     let mut response = [0; BUFFER_LEN];

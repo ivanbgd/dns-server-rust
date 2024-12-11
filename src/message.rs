@@ -3,6 +3,8 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
 //!
 //! https://en.wikipedia.org/wiki/Domain_Name_System#DNS_message_format
+//!
+//! https://www.rfc-editor.org/rfc/rfc1035#section-3.2
 
 use deku::prelude::*;
 
@@ -23,14 +25,19 @@ use deku::prelude::*;
 ///     +---------------------+
 ///     |      Additional     | RRs holding additional information
 ///     +---------------------+
+///
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Message {
     /// The header
     pub header: Header,
 
-    /// The questions for the name server
-    #[deku(count = "1")]
-    pub questions: Vec<Question>,
+    /// Questions for the name server
+    #[deku(count = "header.qdcount")]
+    pub question: Vec<Question>,
+
+    /// Answers to the questions asked in the question section
+    #[deku(count = "header.ancount")]
+    pub answer: Vec<ResourceRecord>,
 }
 
 /// # DNS Message Header
@@ -40,6 +47,7 @@ pub struct Message {
 /// whether the message is a query or a response, a standard query or some
 /// other opcode, etc.
 ///
+///                                     1  1  1  1  1  1
 ///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///     |                      ID                       |
@@ -54,6 +62,7 @@ pub struct Message {
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///     |                    ARCOUNT                    |
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Header {
     /// A 16-bit identifier assigned by the program that generates any kind of query.
@@ -190,6 +199,7 @@ pub enum ResponseCode {
 /// i.e., the parameters that define what is being asked.  The section
 /// contains QDCOUNT (usually 1) entries, each of the following format:
 ///
+///                                     1  1  1  1  1  1
 ///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///     |                                               |
@@ -200,6 +210,7 @@ pub enum ResponseCode {
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///     |                     QCLASS                    |
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 pub struct Question {
     /// QNAME:          a domain name represented as a sequence of labels, where
@@ -221,16 +232,6 @@ pub struct Question {
     ///                 For example, the QCLASS field is IN for the Internet.
     pub qclass: Qclass,
 }
-
-// impl Question {
-//     pub fn new(qname: &[u8], qtype: Qtype, qclass: Qclass) -> Self {
-//         Self {
-//             qname,
-//             qtype,
-//             qclass,
-//         }
-//     }
-// }
 
 /// QTYPE fields appear in the question part of a query.  QTYPES are a
 /// superset of TYPEs, hence all TYPEs are valid QTYPEs.
@@ -255,6 +256,112 @@ pub enum Qtype {
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
 #[deku(id_type = "u16", bits = "16", endian = "big")]
 pub enum Qclass {
+    /// the Internet
+    #[deku(id = "1")]
+    IN = 1,
+}
+
+/// # DNS Resource record
+///
+/// The answer, authority, and additional sections all share the same
+/// format: a variable number of resource records, where the number of
+/// records is specified in the corresponding count field in the header.
+/// Each resource record has the following format:
+///
+///                                     1  1  1  1  1  1
+///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                                               |
+///     /                                               /
+///     /                      NAME                     /
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                      TYPE                     |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     CLASS                     |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                      TTL                      |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                   RDLENGTH                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
+///     /                     RDATA                     /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+pub struct ResourceRecord {
+    /// NAME:           a domain name to which this resource record pertains.
+    #[deku(until = "|v: &u8| *v == 0")]
+    pub name: Vec<u8>,
+
+    /// TYPE:           two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    pub type_: Type,
+
+    /// CLASS:          two octets which specify the class of the data in the
+    ///                 RDATA field.
+    pub class: Class,
+
+    /// TTL             a 32-bit unsigned integer that specifies the time
+    ///                 interval (in seconds) that the resource record may be
+    ///                 cached before it should be discarded.  Zero values are
+    ///                 interpreted to mean that the RR can only be used for the
+    ///                 transaction in progress, and should not be cached.
+    #[deku(endian = "big")]
+    pub ttl: u32,
+
+    /// RDLENGTH        an unsigned 16-bit integer that specifies the length in
+    ///                 octets of the RDATA field.
+    #[deku(endian = "big")]
+    pub rdlength: u16,
+
+    /// RDATA           a variable-length string of octets that describes the
+    ///                 resource.  The format of this information varies
+    ///                 according to the TYPE and CLASS of the resource record.
+    ///                 For example, if the TYPE is A and the CLASS is IN,
+    ///                 the RDATA field is a 4-octet ARPA Internet address.
+    #[deku(count = "rdlength", endian = "big")]
+    pub rdata: Vec<u8>,
+}
+
+impl ResourceRecord {
+    pub fn new(name: Vec<u8>, type_: Type, class: Class, ttl: u32, rdata: Vec<u8>) -> Self {
+        Self {
+            name,
+            type_,
+            class,
+            ttl,
+            rdlength: rdata.len() as u16,
+            rdata,
+        }
+    }
+}
+
+/// TYPE fields are used in resource records.  Note that these types are a
+/// subset of QTYPEs.
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+#[deku(id_type = "u16", bits = "16", endian = "big")]
+pub enum Type {
+    /// a host address
+    #[deku(id = "1")]
+    A = 1,
+
+    /// an authoritative name server
+    #[deku(id = "2")]
+    NS = 2,
+
+    /// mail exchange
+    #[deku(id = "15")]
+    MX = 15,
+}
+
+/// CLASS fields appear in resource records.  Note that these types are a
+/// subset of QCLASSes.
+#[derive(Debug, DekuRead, DekuWrite, PartialEq)]
+#[deku(id_type = "u16", bits = "16", endian = "big")]
+pub enum Class {
     /// the Internet
     #[deku(id = "1")]
     IN = 1,
