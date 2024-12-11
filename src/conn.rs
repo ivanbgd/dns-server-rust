@@ -17,11 +17,16 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
         .await
         .map_err(ConnectionError::RecvError)?;
     info!("<= Received {} bytes from {}", read, source);
+    debug!("<= Received {} bytes from {}", read, source); // todo rem
 
+    eprintln!("<= buf = {:02x?}, {read}", &buf[..read]); // todo rem
     let qmsg = Message::from_bytes((buf, 0))?;
     debug!("<= {:?}", qmsg.1);
+    eprintln!("<= qmsg.1 = {:?}", qmsg.1); // todo rem
     let qheader = qmsg.1.header;
+    eprintln!("<= qheader = {:?}", qheader); // todo rem
     let questions = qmsg.1.question;
+    eprintln!("<= questions = {:?}", questions); // todo rem
 
     //
     // --> Response
@@ -52,6 +57,7 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
         nscount: 0,
         arcount: 0,
     };
+    eprintln!("-> rheader = {:02x?}", rheader); // todo rem
 
     // Response data
     let rdata = ARBITRARY_IPV4;
@@ -67,14 +73,18 @@ pub async fn handle_request(udp_socket: &UdpSocket, buf: &mut [u8]) -> Result<()
         question: questions,
         answer: answers,
     };
+    eprintln!("-> rmsg = {:?}", rmsg); // todo rem
 
     let mut response = [0; BUFFER_LEN];
     let wrote = rmsg.to_slice(&mut response)?;
+    eprintln!("-> response = {:02x?}, {wrote}", &response[..wrote]); // todo rem
     let written = udp_socket
         .send_to(&response[..wrote], source)
         .await
         .map_err(ConnectionError::SendError)?;
     info!("-> Sent {} bytes back to {}", written, source);
+    eprintln!("-> Sent {} bytes back to {}", written, source); // todo rem
+    eprintln!("\n\n"); // todo rem
 
     Ok(())
 }

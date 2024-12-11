@@ -17,11 +17,11 @@ async fn main() -> Result<(), ApplicationError> {
         .await
         .with_context(|| format!("Failed to bind to address {}", LOCAL_SOCKET_ADDR_STR))?;
 
-    let mut buf = [0; BUFFER_LEN];
-
     info!("Waiting for requests...");
 
     loop {
+        let mut buf = [0; BUFFER_LEN];
+
         match handle_request(&udp_socket, &mut buf).await {
             Ok(_) => {}
             Err(ConnectionError::RecvError(e)) => {
@@ -33,6 +33,7 @@ async fn main() -> Result<(), ApplicationError> {
                 warn!("{e}");
             }
         }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await; // todo rem
 
         tokio::spawn(async move {
             // Await the shutdown signal
