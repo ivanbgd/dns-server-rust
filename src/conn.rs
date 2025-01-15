@@ -88,3 +88,116 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
 
     Ok(())
 }
+
+/// Parse the Question section
+fn parse_question(
+    buf: &[u8],
+    rest: &[u8],
+    qheader: &Header,
+    questions: &mut Vec<Question>,
+) -> Result<(), ConnectionError> {
+    todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::conn::parse_question;
+    use crate::message::{Header, Qclass, Qtype};
+    use deku::DekuContainerRead;
+
+    #[test]
+    fn one_question() {
+        let buf: [u8; 43] = [
+            77, 77, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115,
+            115, 100, 111, 109, 97, 105, 110, 110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+        ]; // "abc.longassdomainname.com"
+
+        let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
+        let rest = rest.0;
+
+        let mut questions = vec![];
+        parse_question(&buf, rest, &qheader, &mut questions).unwrap();
+
+        assert_eq!(1, questions.len());
+
+        assert_eq!(
+            vec![
+                3u8, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
+                110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[0].qname
+        );
+        assert_eq!(Qtype::A, questions[0].qtype);
+        assert_eq!(Qclass::IN, questions[0].qclass);
+    }
+
+    #[test]
+    fn two_questions() {
+        let buf: [u8; 53] = [
+            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115,
+            115, 100, 111, 109, 97, 105, 110, 110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1, 3,
+            100, 101, 102, 192, 16, 0, 1, 0, 1,
+        ]; // "abc.longassdomainname.com", "def.longassdomainname.com"
+
+        let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
+        let rest = rest.0;
+
+        let mut questions = vec![];
+        parse_question(&buf, rest, &qheader, &mut questions).unwrap();
+
+        assert_eq!(2, questions.len());
+
+        assert_eq!(
+            vec![
+                3u8, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
+                110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[0].qname
+        );
+        assert_eq!(Qtype::A, questions[0].qtype);
+        assert_eq!(Qclass::IN, questions[0].qclass);
+
+        assert_eq!(
+            vec![
+                3u8, 100, 101, 102, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105,
+                110, 110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[1].qname
+        );
+        assert_eq!(Qtype::A, questions[1].qtype);
+        assert_eq!(Qclass::IN, questions[1].qclass);
+    }
+
+    #[test]
+    fn four_questions() {
+        let buf: [u8; 52] = [
+            // 0..=19: header & "aa"
+            77, 77, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 2, 97, 97, 0, 0, 1, 0, 1,
+            //
+            // 20..=35: "f.isi.arpa"
+            1, 102, 3, 105, 115, 105, 4, 97, 114, 112, 97, 0, 0, 1, 0, 1,
+            //
+            // 36..=51: "foo.f.isi.arpa", "arpa"
+            3, 102, 111, 111, 192, 20, 0, 1, 0, 1, 192, 26, 0, 1, 0, 1,
+        ];
+
+        let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
+        let rest = rest.0;
+
+        let mut questions = vec![];
+        parse_question(&buf, rest, &qheader, &mut questions).unwrap();
+
+        assert_eq!(4, questions.len());
+
+        assert_eq!(vec![2u8, 97, 97, 0], questions[0].qname); // "aa"
+        assert_eq!(
+            vec![1u8, 102, 3, 105, 115, 105, 4, 97, 114, 112, 97, 0], // "f.isi.arpa"
+            questions[1].qname
+        );
+        assert_eq!(
+            vec![3u8, 102, 111, 111, 1, 102, 3, 105, 115, 105, 4, 97, 114, 112, 97, 0], // "foo.f.isi.arpa"
+            questions[2].qname
+        );
+        assert_eq!(vec![4u8, 97, 114, 112, 97, 0], questions[3].qname); // "arpa"
+    }
+}

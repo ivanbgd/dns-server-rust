@@ -47,6 +47,8 @@ pub struct Message {
 /// whether the message is a query or a response, a standard query or some
 /// other opcode, etc.
 ///
+/// A header's length is always 12 bytes.
+///
 ///                                     1  1  1  1  1  1
 ///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
