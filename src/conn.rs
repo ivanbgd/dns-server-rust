@@ -106,11 +106,14 @@ mod tests {
     use deku::DekuContainerRead;
 
     #[test]
-    fn one_question() {
+    fn one_question_uncompressed() {
         let buf: [u8; 43] = [
-            77, 77, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115,
-            115, 100, 111, 109, 97, 105, 110, 110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
-        ]; // "abc.longassdomainname.com"
+            77, 77, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            //
+            // "abc.longassdomainname.com"
+            3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110, 110,
+            97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+        ];
 
         let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
         let rest = rest.0;
@@ -132,12 +135,18 @@ mod tests {
     }
 
     #[test]
-    fn two_questions() {
-        let buf: [u8; 53] = [
-            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115,
-            115, 100, 111, 109, 97, 105, 110, 110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1, 3,
-            100, 101, 102, 192, 16, 0, 1, 0, 1,
-        ]; // "abc.longassdomainname.com", "def.longassdomainname.com"
+    fn two_questions_uncompressed() {
+        let buf: [u8; 74] = [
+            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0,
+            //
+            // "abc.longassdomainname.com"
+            3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110, 110,
+            97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+            //
+            // "def.longassdomainname.com"
+            3, 100, 101, 102, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
+            110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+        ];
 
         let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
         let rest = rest.0;
@@ -169,7 +178,49 @@ mod tests {
     }
 
     #[test]
-    fn four_questions() {
+    fn two_questions_compressed() {
+        let buf: [u8; 53] = [
+            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0,
+            //
+            // "abc.longassdomainname.com"
+            3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110, 110,
+            97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+            //
+            // "def.longassdomainname.com"
+            3, 100, 101, 102, 192, 16, 0, 1, 0, 1,
+        ];
+
+        let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
+        let rest = rest.0;
+
+        let mut questions = vec![];
+        parse_question(&buf, rest, &qheader, &mut questions).unwrap();
+
+        assert_eq!(2, questions.len());
+
+        assert_eq!(
+            vec![
+                3u8, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
+                110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[0].qname
+        );
+        assert_eq!(Qtype::A, questions[0].qtype);
+        assert_eq!(Qclass::IN, questions[0].qclass);
+
+        assert_eq!(
+            vec![
+                3u8, 100, 101, 102, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105,
+                110, 110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[1].qname
+        );
+        assert_eq!(Qtype::A, questions[1].qtype);
+        assert_eq!(Qclass::IN, questions[1].qclass);
+    }
+
+    #[test]
+    fn four_questions_compressed() {
         let buf: [u8; 52] = [
             // 0..=19: header & "aa"
             77, 77, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 2, 97, 97, 0, 0, 1, 0, 1,
