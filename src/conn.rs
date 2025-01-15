@@ -135,9 +135,9 @@ mod tests {
     }
 
     #[test]
-    fn two_questions_uncompressed() {
-        let buf: [u8; 74] = [
-            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0,
+    fn three_questions_uncompressed() {
+        let buf: [u8; 105] = [
+            77, 77, 1, 0, 0, 3, 0, 0, 0, 0, 0, 0,
             //
             // "abc.longassdomainname.com"
             3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110, 110,
@@ -145,6 +145,10 @@ mod tests {
             //
             // "def.longassdomainname.com"
             3, 100, 101, 102, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
+            110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
+            //
+            // "ghi.longassdomainname.com"
+            3, 103, 104, 105, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110,
             110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1,
         ];
 
@@ -154,7 +158,7 @@ mod tests {
         let mut questions = vec![];
         parse_question(&buf, rest, &qheader, &mut questions).unwrap();
 
-        assert_eq!(2, questions.len());
+        assert_eq!(3, questions.len());
 
         assert_eq!(
             vec![
@@ -175,12 +179,22 @@ mod tests {
         );
         assert_eq!(Qtype::A, questions[1].qtype);
         assert_eq!(Qclass::IN, questions[1].qclass);
+
+        assert_eq!(
+            vec![
+                3u8, 103, 104, 105, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105,
+                110, 110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[2].qname
+        );
+        assert_eq!(Qtype::A, questions[2].qtype);
+        assert_eq!(Qclass::IN, questions[2].qclass);
     }
 
     #[test]
-    fn two_questions_compressed() {
-        let buf: [u8; 53] = [
-            77, 77, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0,
+    fn three_questions_compressed() {
+        let buf: [u8; 63] = [
+            77, 77, 1, 0, 0, 3, 0, 0, 0, 0, 0, 0,
             //
             // "abc.longassdomainname.com"
             3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105, 110, 110,
@@ -188,6 +202,9 @@ mod tests {
             //
             // "def.longassdomainname.com"
             3, 100, 101, 102, 192, 16, 0, 1, 0, 1,
+            //
+            // "ghi.longassdomainname.com"
+            3, 103, 104, 105, 192, 16, 0, 1, 0, 1,
         ];
 
         let (rest, qheader) = Header::from_bytes((&buf, 0)).unwrap();
@@ -196,7 +213,7 @@ mod tests {
         let mut questions = vec![];
         parse_question(&buf, rest, &qheader, &mut questions).unwrap();
 
-        assert_eq!(2, questions.len());
+        assert_eq!(3, questions.len());
 
         assert_eq!(
             vec![
@@ -217,6 +234,16 @@ mod tests {
         );
         assert_eq!(Qtype::A, questions[1].qtype);
         assert_eq!(Qclass::IN, questions[1].qclass);
+
+        assert_eq!(
+            vec![
+                3u8, 103, 104, 105, 17, 108, 111, 110, 103, 97, 115, 115, 100, 111, 109, 97, 105,
+                110, 110, 97, 109, 101, 3, 99, 111, 109, 0
+            ],
+            questions[2].qname
+        );
+        assert_eq!(Qtype::A, questions[2].qtype);
+        assert_eq!(Qclass::IN, questions[2].qclass);
     }
 
     #[test]
