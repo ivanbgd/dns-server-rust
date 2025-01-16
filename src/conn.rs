@@ -2,10 +2,13 @@
 
 use crate::constants::{ARBITRARY_IPV4, BUFFER_LEN, TTL};
 use crate::errors::ConnectionError;
-use crate::message::{Class, Header, Message, OpCode, Qr, ResourceRecord, ResponseCode, Type};
+use crate::message::{
+    Class, Header, Message, OpCode, Qr, Question, ResourceRecord, ResponseCode, Type,
+};
+
 use anyhow::Result;
 use deku::{DekuContainerRead, DekuContainerWrite};
-use log::{debug, info};
+use log::{debug, info, trace};
 use tokio::net::UdpSocket;
 
 pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionError> {
@@ -19,16 +22,14 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         .await
         .map_err(ConnectionError::RecvError)?;
     info!("<= Received {} bytes from {}", read, source);
-    debug!("<= Received {} bytes from {}", read, source); // todo rem
+    // Remove mutability.
+    let buf = buf;
 
-    eprintln!("<= buf = {:02x?}, {read}", &buf[..read]); // todo rem
-    let qmsg = Message::from_bytes((&mut buf, 0))?;
-    debug!("<= {:?}", qmsg.1);
-    eprintln!("<= qmsg.1 = {:02x?}", qmsg.1); // todo rem
-    let qheader = qmsg.1.header;
-    eprintln!("<= qheader = {:?}", qheader); // todo rem
-    let questions = qmsg.1.question;
-    eprintln!("<= questions = {:02x?}", questions); // todo rem
+    let (rest, qheader) = Header::from_bytes((&buf, 0))?;
+    let rest = rest.0;
+
+    let mut questions = vec![];
+    parse_question(&buf, rest, &qheader, &mut questions)?;
 
     //
     // --> Response
@@ -56,7 +57,6 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         nscount: 0,
         arcount: 0,
     };
-    eprintln!("-> rheader = {:02x?}", rheader); // todo rem
 
     // Response data
     let rdata = ARBITRARY_IPV4;
@@ -73,18 +73,14 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
         answer: answers,
     };
     debug!("-> {:?}", rmsg);
-    eprintln!("-> rmsg = {:?}", rmsg); // todo rem
 
     let mut buf = [0u8; BUFFER_LEN];
     let wrote = rmsg.to_slice(&mut buf)?;
-    eprintln!("-> response = {:02x?}, {wrote}", &buf[..wrote]); // todo rem
     let written = udp_socket
         .send_to(&buf[..wrote], source)
         .await
         .map_err(ConnectionError::SendError)?;
     info!("-> Sent {} bytes back to {}", written, source);
-    eprintln!("-> Sent {} bytes back to {}", written, source); // todo rem
-    eprintln!("\n\n"); // todo rem
 
     Ok(())
 }
@@ -96,7 +92,58 @@ fn parse_question(
     qheader: &Header,
     questions: &mut Vec<Question>,
 ) -> Result<(), ConnectionError> {
-    todo!()
+    // The first question is never compressed, so using "deku" is always okay for the first question.
+    let (rest, question) = Question::from_bytes((rest, 0))?;
+    let mut rest = rest.0;
+    questions.push(question);
+
+    for _qi in 1..qheader.qdcount {
+        let (r, question) = match Question::from_bytes((rest, 0)) {
+            Ok((r, q)) => (r, q), // Uncompressed question
+
+            Err(e) => {
+                // Compressed question
+                trace!("Compressed question");
+                trace!("error: {}", e); // DekuError::Parse
+                let mut qname = vec![];
+
+                // Iterate over bytes until a byte begins with 0b11, meaning it's >= 192, i.e., >= 0xc0.
+                let mut offset_hi = 0u8;
+                let mut bi = 0usize;
+                for b in rest {
+                    bi += 1;
+                    if b == &0 {
+                        return Err(ConnectionError::ZeroByte);
+                    } else if b < &192 {
+                        qname.push(*b);
+                    } else {
+                        offset_hi &= 0x3f;
+                        break;
+                    }
+                }
+                let offset_lo = rest[bi];
+                bi += 1;
+                let jump = u16::from_be_bytes([offset_hi, offset_lo]);
+
+                // Update qname.
+                let (_r, qq) = Question::from_bytes((buf, 8 * jump as usize))?;
+                qname.extend_from_slice(&qq.qname);
+
+                let qtype = u16::from_be_bytes([rest[bi], rest[bi + 1]]);
+                bi += 2;
+                let qclass = u16::from_be_bytes([rest[bi], rest[bi + 1]]);
+                bi += 2;
+
+                let r = (&rest[bi..], 0usize);
+                let q = Question::new(qname, qtype.try_into()?, qclass.try_into()?);
+
+                (r, q)
+            }
+        };
+        rest = r.0;
+        questions.push(question);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

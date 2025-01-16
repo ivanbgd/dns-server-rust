@@ -7,7 +7,7 @@ rust-version = "1.80"
 
 [dependencies]
 anyhow = "1.0.94"                                # error handling
-bytes = "1.9.0"                                  # helps manage buffers
+#bytes = "1.9.0"                                  # helps manage buffers
 deku = { version = "0.18.1", features = ["logging"] }
 env_logger = "0.11.5"
 log = "0.4.22"

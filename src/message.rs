@@ -6,6 +6,8 @@
 //!
 //! https://www.rfc-editor.org/rfc/rfc1035#section-3.2
 
+use crate::errors::{QclassError, QtypeError};
+use anyhow::Result;
 use deku::prelude::*;
 
 /// # DNS Message
@@ -219,7 +221,7 @@ pub struct Question {
     ///                 zero length octet for the null label of the root.  Note
     ///                 that this field may be an odd number of octets; no
     ///                 padding is used.
-    #[deku(until = "|v: &u8| *v == 0")]
+    #[deku(until = "|v: &u8| (*v == 0) || (*v & 0xc0 == 0xc0)")]
     pub qname: Vec<u8>,
 
     /// QTYPE:          a two octet code which specifies the type of the query.
@@ -231,6 +233,16 @@ pub struct Question {
     /// QCLASS:         a two octet code that specifies the class of the query.
     ///                 For example, the QCLASS field is IN for the Internet.
     pub qclass: Qclass,
+}
+
+impl Question {
+    pub fn new(qname: Vec<u8>, qtype: Qtype, qclass: Qclass) -> Self {
+        Self {
+            qname,
+            qtype,
+            qclass,
+        }
+    }
 }
 
 /// QTYPE fields appear in the question part of a query.  QTYPES are a
@@ -251,6 +263,19 @@ pub enum Qtype {
     MX = 15,
 }
 
+impl TryFrom<u16> for Qtype {
+    type Error = QtypeError;
+
+    fn try_from(value: u16) -> Result<Qtype, QtypeError> {
+        match value {
+            1 => Ok(Qtype::A),
+            2 => Ok(Qtype::NS),
+            15 => Ok(Qtype::MX),
+            v => Err(QtypeError::UnsupportedQtype(v)),
+        }
+    }
+}
+
 /// QCLASS fields appear in the question section of a query.  QCLASS values
 /// are a superset of CLASS values; every CLASS is a valid QCLASS.
 #[derive(Debug, DekuRead, DekuWrite, PartialEq)]
@@ -259,6 +284,17 @@ pub enum Qclass {
     /// the Internet
     #[deku(id = "1")]
     IN = 1,
+}
+
+impl TryFrom<u16> for Qclass {
+    type Error = QclassError;
+
+    fn try_from(value: u16) -> Result<Qclass, QclassError> {
+        match value {
+            1 => Ok(Qclass::IN),
+            v => Err(QclassError::UnsupportedQclass(v)),
+        }
+    }
 }
 
 /// # DNS Resource record
