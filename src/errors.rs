@@ -11,6 +11,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ApplicationError {
     #[error(transparent)]
+    ConnectionError(#[from] ConnectionError),
+
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 

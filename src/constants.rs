@@ -19,4 +19,5 @@ pub const ARBITRARY_IPV4: [u8; 4] = [192, 168, 1, 1];
 pub enum ExitCode {
     Shutdown = -1,
     UdpRecv = -2,
+    ForwardingError = -3,
 }

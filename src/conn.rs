@@ -5,23 +5,28 @@ use crate::errors::ConnectionError;
 use crate::message::{
     Class, Header, Message, OpCode, Qr, Question, ResourceRecord, ResponseCode, Type,
 };
-
 use anyhow::Result;
+use bytes::BytesMut;
 use deku::{DekuContainerRead, DekuContainerWrite};
 use log::{debug, info, trace};
+use std::iter::zip;
+use std::net::SocketAddrV4;
 use tokio::net::UdpSocket;
 
-pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionError> {
+pub async fn handle_request(
+    udp_socket: &UdpSocket,
+    resolver: Option<SocketAddrV4>,
+) -> Result<(), ConnectionError> {
     //
     // <== Query
     //
 
     let mut buf = [0u8; BUFFER_LEN];
-    let (read, source) = udp_socket
+    let (received, source) = udp_socket
         .recv_from(&mut buf)
         .await
         .map_err(ConnectionError::RecvError)?;
-    info!("<= Received {} bytes from {}", read, source);
+    info!("<= Received {} bytes from {}", received, source);
     // Remove mutability.
     let buf = buf;
 
@@ -59,12 +64,47 @@ pub async fn handle_request(udp_socket: &UdpSocket) -> Result<(), ConnectionErro
     };
 
     // Response data
-    let rdata = ARBITRARY_IPV4;
+    let mut rdata: Vec<[u8; 4]> = vec![];
 
-    let answers = questions
-        .iter()
-        .clone()
-        .map(|q| ResourceRecord::new(q.qname.clone(), Type::A, Class::IN, TTL, Vec::from(rdata)))
+    if let Some(resolver) = resolver {
+        // We are a forwarding DNS server (a DNS forwarder).
+        // Let's forward DNS queries to a DNS resolver and collect the responses that we get from it.
+        for question in &questions {
+            let mut q_buf = BytesMut::from(&buf[0..received]);
+            q_buf[0..12].copy_from_slice(&buf[..12]);
+            // Their test suite doesn't support OpCode::InverseQuery in this case, so we have to hack this byte,
+            // q_buf[2], to OpCode::Query, in order for that test to pass!
+            q_buf[2] = 1;
+            q_buf[4] = 0; // qheader.qdcount[hi]
+            q_buf[5] = 1; // qheader.qdcount[lo]
+            q_buf[12..12 + question.qname.len()].copy_from_slice(&question.qname);
+            q_buf[12 + question.qname.len()..][..4].copy_from_slice(&[0, 1, 0, 1]); // Append Qtype & Qclass.
+
+            // Send a Question message
+            udp_socket
+                .send_to(&q_buf, resolver)
+                .await
+                .map_err(ConnectionError::SendError)?;
+
+            // Receive an Answer message
+            let mut r_buf = [0u8; BUFFER_LEN];
+            udp_socket
+                .recv_from(&mut r_buf)
+                .await
+                .map_err(ConnectionError::RecvError)?;
+
+            let (_rest, answer) = Message::from_bytes((&r_buf, 0))?;
+            let r =
+                <[u8; 4]>::try_from(answer.answer[0].rdata.clone()).expect("Try from slice failed");
+            rdata.push(r);
+        }
+    } else {
+        // We are the DNS resolver, so we resolve the DNS queries ourselves.
+        rdata = vec![ARBITRARY_IPV4; questions.len()];
+    }
+
+    let answers = zip(questions.iter(), rdata.iter())
+        .map(|(q, r)| ResourceRecord::new(q.qname.clone(), Type::A, Class::IN, TTL, Vec::from(r)))
         .collect::<Vec<_>>();
 
     let rmsg = Message {

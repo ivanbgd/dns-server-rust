@@ -221,7 +221,7 @@ pub struct Question {
     ///                 zero length octet for the null label of the root.  Note
     ///                 that this field may be an odd number of octets; no
     ///                 padding is used.
-    #[deku(until = "|v: &u8| (*v == 0) || (*v & 0xc0 == 0xc0)")]
+    #[deku(until = "|v: &u8| *v == 0")]
     pub qname: Vec<u8>,
 
     /// QTYPE:          a two octet code which specifies the type of the query.
