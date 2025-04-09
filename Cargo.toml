@@ -1,15 +1,15 @@
 [package]
-name = "codecrafters-dns-server"
+name = "dns-server"
 version = "0.1.0"
-authors = ["Codecrafters <hello@codecrafters.io>"]
+authors = ["Ivan Lazarević"]
 edition = "2021"
 rust-version = "1.80"
 
 [dependencies]
-anyhow = "1.0.94"                                # error handling
-bytes = "1.9.0"                                  # helps manage buffers
+anyhow = "1.0.94"
+bytes = "1.9.0"
 deku = { version = "0.18.1", features = ["logging"] }
 env_logger = "0.11.5"
 log = "0.4.22"
-thiserror = "2.0.4"                             # error handling
+thiserror = "2.0.4"
 tokio = { version = "1", features = ["full"] }

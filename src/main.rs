@@ -1,9 +1,9 @@
 //! # A DNS Server Application
 
 use anyhow::{Context, Result};
-use codecrafters_dns_server::conn::handle_request;
-use codecrafters_dns_server::constants::{ExitCode, LOCAL_SOCKET_ADDR_STR};
-use codecrafters_dns_server::errors::{ApplicationError, ConnectionError};
+use dns_server::conn::handle_request;
+use dns_server::constants::{ExitCode, LOCAL_SOCKET_ADDR_STR};
+use dns_server::errors::{ApplicationError, ConnectionError};
 use log::{error, info, warn};
 use std::env;
 use std::net::SocketAddrV4;

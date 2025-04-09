@@ -133,19 +133,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "codecrafters-dns-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "deku",
- "env_logger",
- "log",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -210,6 +197,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "dns-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "deku",
+ "env_logger",
+ "log",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
